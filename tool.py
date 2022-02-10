@@ -40,10 +40,7 @@ def local_max(arr, N = 2, strict = False):
                     #reproduce old behaviour
                     local_max = False
                     break
-                #continue on to looking in the opposite direction
-                else:
-                    pass
-            
+                
             try:
                 if arr[i] < arr[i - j]:
                     local_max = False
@@ -53,8 +50,6 @@ def local_max(arr, N = 2, strict = False):
                 if strict:
                     local_max = False
                     break
-                else:
-                    pass
 
             
         if local_max:
