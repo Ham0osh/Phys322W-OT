@@ -2,6 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.integrate import solve_ivp
+import scipy.constants as cnst
+from matplotlib import cm
+from matplotlib.collections import LineCollection
+from dataclasses import dataclass
 import scipy.interpolate as interpolate
 
 
@@ -87,3 +91,139 @@ def noise(func, sigma = 0):
         modified += np.random.normal(scale = sigma, size = len(modified))
         return modified
     return noisy_func
+
+def circle(thetas,radius = 1):
+    x = radius*np.cos(thetas)
+    y = radius*np.sin(thetas)
+    return x,y
+
+
+def outliers(x_arr,y_arr, auto = True, max_movement = 1):
+    '''takes a an array of x and y data and returns the index of any outliers, where
+    outliers is defined as a shift in position greater than the max_movement per time step'''
+    outlier_arr = []
+    copy_x = list(x_arr)
+    copy_y = list(y_arr)
+    dist_arr = ((x_arr[1:] - x_arr[:-1])**2 + (y_arr[1:] - y_arr[:-1])**2)**(1/2)
+
+    if auto:
+        max_movement = 5*np.std(dist_arr)
+
+    i = 1
+    while i < len(copy_x):
+        dx = (copy_x[i] - copy_x[i-1])
+        dy = (copy_y[i] - copy_y[i-1])
+        if np.sqrt(dx**2 + dy**2) > max_movement:
+            outlier_arr.append(i + len(outlier_arr))
+            copy_x.pop(i)
+            copy_y.pop(i)
+        else:
+            i += 1
+
+    return np.array(copy_x), np.array(copy_y), np.array(outlier_arr)
+
+
+def gaussian(x, mu, sigma):
+    return 1/(sigma*np.sqrt(2*np.pi))*np.exp(-1/2*((x-mu)/sigma)**2)
+
+@dataclass
+class gaussain_method_analysis:
+    pOpt_x: np.array = np.array([])
+    pCov_x: np.array = np.array([]) 
+    pOpt_y: np.array = np.array([])
+    pCov_y: np.array = np.array([])
+    bins_x: np.array = np.array([])
+    bins_y: np.array = np.array([])
+    hist_x: np.array = np.array([]) 
+    hist_y: np.array = np.array([])
+    
+
+
+def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10):
+
+    # start with a square Figure
+    fig = plt.figure(figsize=(8, 8))
+
+    # Add a gridspec with two rows and two columns and a ratio of 2 to 7 between
+    # the size of the marginal axes and the main axes in both directions.
+    # Also adjust the subplot parameters for a square plot.
+    gs = fig.add_gridspec(2, 2,  width_ratios=(7, 2), height_ratios=(2, 7),
+                        left=0.1, right=0.9, bottom=0.1, top=0.9,
+                        wspace=0.05, hspace=0.05)
+
+
+    ax = fig.add_subplot(gs[1, 0])
+
+    #no idea how this formatting works
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1) 
+
+    lc = LineCollection(segments, cmap=cmap)
+    lc.set_array(np.linspace(0,1,len(x)))
+    line = ax.add_collection(lc)
+    
+
+    ax_histx = fig.add_subplot(gs[0, 0], sharex=ax)
+    ax_histy = fig.add_subplot(gs[1, 1], sharey=ax)
+    fig.colorbar(cm.ScalarMappable(cmap=cmap), ax=ax_histy,label = "passage of time")
+    ax_histx.tick_params(axis="x", labelbottom=False)
+    ax_histy.tick_params(axis="y", labelleft=False)
+
+    n, bins = np.histogram(y, bins = nbins)
+    normalizing_factor = np.sum(n)*abs(bins[0] - bins[1])
+    error = np.sqrt(n)
+    error = np.where(error == 0, 1, error)
+
+
+    n_y, bins, _ = ax_histy.hist(y, bins = nbins, density=True, orientation = 'horizontal')
+    #get centre position of the bins
+    bins_y = (bins[:-1] + bins[1:])/2
+
+
+
+    norm_err = error/normalizing_factor
+    ax_histy.errorbar(n_y, bins_y, xerr = norm_err, fmt = 'k.', capsize = 3, ms = 1)
+
+
+    dx = np.linspace(min(bins)*1.2, max(bins)*1.2, 100)
+    pOpt_y, pCov_y = curve_fit(gaussian, bins_y, n_y, p0 = [0,0.05], sigma = norm_err, absolute_sigma=True)
+    ax_histy.plot(gaussian(dx, *pOpt_y), dx)
+
+    temp = 298
+    sigma = pOpt_y[1]/(10**6)
+    vari = sigma**2
+    print(f"for y:\nmean = {pOpt_y[0]}\nsigma = {sigma}")
+    print(f"variance = {vari}")
+    print(f"k = {cnst.Boltzmann*temp/vari} [N/m]")
+
+
+    ##### this is where the x analysis begins
+
+    n, bins = np.histogram(x, bins = nbins)
+    normalizing_factor = np.sum(n)*abs(bins[0] - bins[1])
+    error = np.sqrt(n)
+    error = np.where(error == 0, 1, error)
+
+
+    n_x, bins, _ = ax_histx.hist(x, bins = nbins, density=True)
+    #get centre position of the bins
+    bins_x = (bins[:-1] + bins[1:])/2
+
+    norm_err = error/normalizing_factor
+    ax_histx.errorbar(bins_x, n_x, yerr = norm_err, fmt = 'k.', capsize = 3, ms = 1)
+
+    dx = np.linspace(min(bins)*1.2, max(bins)*1.2, 100)
+    pOpt_x, pCov_x = curve_fit(gaussian, bins_x, n_x, p0 = [0,0.05], sigma = norm_err, absolute_sigma=True) # units are in um
+    ax_histx.plot(dx, gaussian(dx, *pOpt_x))
+
+    sigma = pOpt_x[1]/(10**6)
+    vari = sigma**2
+    print(f"for x:\nmean = {pOpt_x[0]}\nsigma = {sigma}")
+    print(f"variance = {vari}")
+    print(f"k = {cnst.Boltzmann*temp/vari} [N/m]")
+
+
+    ret = gaussain_method_analysis(pCov_x = pCov_x, pOpt_x = pOpt_x, pCov_y = pCov_y, pOpt_y = pOpt_y, bins_x = bins_x, bins_y = bins_y,
+        hist_x = n_x, hist_y = n_y)
+
+    return ret
