@@ -136,6 +136,8 @@ class gaussain_method_analysis:
     bins_y: np.array = np.array([])
     hist_x: np.array = np.array([]) 
     hist_y: np.array = np.array([])
+    k_x: float = 0
+    k_y: float = 0
     
 
 
@@ -192,6 +194,7 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10):
     temp = 298
     sigma = pOpt_y[1]/(10**6)
     vari = sigma**2
+    k_y = cnst.Boltzmann*temp/vari
     print(f"for y:\nmean = {pOpt_y[0]}\nsigma = {sigma}")
     print(f"variance = {vari}")
     print(f"k = {cnst.Boltzmann*temp/vari} [N/m]")
@@ -218,12 +221,13 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10):
 
     sigma = pOpt_x[1]/(10**6)
     vari = sigma**2
+    k_x = cnst.Boltzmann*temp/vari
     print(f"for x:\nmean = {pOpt_x[0]}\nsigma = {sigma}")
     print(f"variance = {vari}")
     print(f"k = {cnst.Boltzmann*temp/vari} [N/m]")
 
 
     ret = gaussain_method_analysis(pCov_x = pCov_x, pOpt_x = pOpt_x, pCov_y = pCov_y, pOpt_y = pOpt_y, bins_x = bins_x, bins_y = bins_y,
-        hist_x = n_x, hist_y = n_y)
+        hist_x = n_x, hist_y = n_y, k_x = k_x, k_y = k_y)
 
     return ret
