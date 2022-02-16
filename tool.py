@@ -98,7 +98,7 @@ def circle(thetas,radius = 1):
     return x,y
 
 
-def outliers(x_arr,y_arr, auto = True, max_movement = 1):
+def outliers(x_arr,y_arr, max_movement = None):
     '''takes a an array of x and y data and returns the index of any outliers, where
     outliers is defined as a shift in position greater than the max_movement per time step'''
     outlier_arr = []
@@ -106,8 +106,8 @@ def outliers(x_arr,y_arr, auto = True, max_movement = 1):
     copy_y = list(y_arr)
     dist_arr = ((x_arr[1:] - x_arr[:-1])**2 + (y_arr[1:] - y_arr[:-1])**2)**(1/2)
 
-    if auto:
-        max_movement = 5*np.std(dist_arr)
+    if max_movement is None:
+        max_movement = 10*np.mean(dist_arr)
 
     i = 1
     while i < len(copy_x):
@@ -154,7 +154,7 @@ def get_k_equipartition(x,y):
     k_y = k_b*T/(var_y) #[N/m]
     return k_x*10**6, k_y*10**6 # in [pN/um]
 
-def gaussian_analysis(x,y, nbins = 10, p0 = [0,0.05]):
+def gaussian_analysis(x,y, nbins = 10, p0 = [0,0.1]):
     n, bins = np.histogram(y, bins = nbins)
     normalizing_factor = np.sum(n)*abs(bins[0] - bins[1])
     error = np.sqrt(n)
@@ -200,8 +200,8 @@ def gaussian_analysis(x,y, nbins = 10, p0 = [0,0.05]):
     return ret
 
 
-def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True, plot = True, p0_y = [0,0.05],
-    p0_x = [0,0.05]):
+def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True, plot = True, p0_y = [0,0.1],
+    p0_x = [0,0.1]):
     '''takes x and y data and makes the histogram projection as well as analysis
     of fits using a gaussian function'''
     # start with a square Figure
