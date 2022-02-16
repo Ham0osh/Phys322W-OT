@@ -128,6 +128,7 @@ def gaussian(x, mu, sigma):
 
 @dataclass
 class gaussain_method_analysis:
+    '''class for storing the analysis from histogram projection function'''
     pOpt_x: np.array = np.array([])
     pCov_x: np.array = np.array([]) 
     pOpt_y: np.array = np.array([])
@@ -139,11 +140,72 @@ class gaussain_method_analysis:
     k_x: float = 0
     k_y: float = 0
     
+def get_k_equipartition(x,y):
+    '''
+    Input: x and y data [um] (preferably decimated)
+    Output: k_x, k_y in [pN/um]
+    Assumes boltzman constant and T is approx 298 K = 25 C
+    '''
+    k_b = cnst.Boltzmann # m^2 kg s-2 K-1
+    T = 298 # K
+    var_x = np.var(x/(10**6)) #[m^2]
+    var_y = np.var(y/(10**6)) #[m^2]
+    k_x = k_b*T/(var_x) #[N/m]
+    k_y = k_b*T/(var_y) #[N/m]
+    return k_x*10**6, k_y*10**6 # in [pN/um]
+
+def gaussian_analysis(x,y, nbins = 10, p0 = [0,0.05]):
+    n, bins = np.histogram(y, bins = nbins)
+    normalizing_factor = np.sum(n)*abs(bins[0] - bins[1])
+    error = np.sqrt(n)
+    error = np.where(error == 0, 1, error)
+
+    norm_err = error/normalizing_factor
+    n_y, bins = np.histogram(y, bins = nbins, density = True)
+    bins_y = (bins[:-1] + bins[1:])/2
+
+    dx = np.linspace(min(bins)*1.2, max(bins)*1.2, 100)
+    pOpt_y, pCov_y = curve_fit(gaussian, bins_y, n_y, p0 = p0, sigma = norm_err, absolute_sigma=True)
+
+    temp = 298
+    sigma = pOpt_y[1]/10**6
+    vari = sigma**2
+    k_y = cnst.Boltzmann*temp/vari*10**6
+
+    ### x analysis starts here
+    n, bins = np.histogram(x, bins = nbins)
+    normalizing_factor = np.sum(n)*abs(bins[0] - bins[1])
+    error = np.sqrt(n)
+    error = np.where(error == 0, 1, error)
 
 
-def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10):
+    n_x, bins = np.histogram(x, bins = nbins, density=True)
+    #get centre position of the bins
+    bins_x = (bins[:-1] + bins[1:])/2
 
+    norm_err = error/normalizing_factor
+
+    dx = np.linspace(min(bins)*1.2, max(bins)*1.2, 100)
+    pOpt_x, pCov_x = curve_fit(gaussian, bins_x, n_x, p0 = [0,0.05], sigma = norm_err, absolute_sigma=True) # units are in um
+    
+
+    sigma = pOpt_x[1]/10**6
+    vari = sigma**2
+    k_x = cnst.Boltzmann*temp/vari*10**6
+
+    ret = gaussain_method_analysis(pCov_x = pCov_x, pOpt_x = pOpt_x, pCov_y = pCov_y, pOpt_y = pOpt_y, bins_x = bins_x, bins_y = bins_y,
+        hist_x = n_x, hist_y = n_y, k_x = k_x, k_y = k_y)
+
+    
+    return ret
+
+
+def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True, plot = True, p0_y = [0,0.05],
+    p0_x = [0,0.05]):
+    '''takes x and y data and makes the histogram projection as well as analysis
+    of fits using a gaussian function'''
     # start with a square Figure
+
     fig = plt.figure(figsize=(8, 8))
 
     # Add a gridspec with two rows and two columns and a ratio of 2 to 7 between
@@ -174,6 +236,8 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10):
     n, bins = np.histogram(y, bins = nbins)
     normalizing_factor = np.sum(n)*abs(bins[0] - bins[1])
     error = np.sqrt(n)
+    #sometimes the bins have nothing in them and dividing by zero will give error so we have
+    #to replace the zeroes with something I chose 1 for no particular reason
     error = np.where(error == 0, 1, error)
 
 
@@ -188,16 +252,17 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10):
 
 
     dx = np.linspace(min(bins)*1.2, max(bins)*1.2, 100)
-    pOpt_y, pCov_y = curve_fit(gaussian, bins_y, n_y, p0 = [0,0.05], sigma = norm_err, absolute_sigma=True)
+    pOpt_y, pCov_y = curve_fit(gaussian, bins_y, n_y, p0 = p0_y, sigma = norm_err, absolute_sigma=True)
     ax_histy.plot(gaussian(dx, *pOpt_y), dx)
 
     temp = 298
-    sigma = pOpt_y[1]/(10**6)
+    sigma = pOpt_y[1]/10**6
     vari = sigma**2
-    k_y = cnst.Boltzmann*temp/vari
-    print(f"for y:\nmean = {pOpt_y[0]}\nsigma = {sigma}")
-    print(f"variance = {vari}")
-    print(f"k = {cnst.Boltzmann*temp/vari} [N/m]")
+    k_y = cnst.Boltzmann*temp/vari*10**6
+    if printBool:
+        print(f"for y:\nmean = {pOpt_y[0]}\nsigma = {sigma*10**6}")
+        print(f"variance = {vari*10**12}")
+        print(f"k = {k_y} [pN/um]")
 
 
     ##### this is where the x analysis begins
@@ -216,18 +281,58 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10):
     ax_histx.errorbar(bins_x, n_x, yerr = norm_err, fmt = 'k.', capsize = 3, ms = 1)
 
     dx = np.linspace(min(bins)*1.2, max(bins)*1.2, 100)
-    pOpt_x, pCov_x = curve_fit(gaussian, bins_x, n_x, p0 = [0,0.05], sigma = norm_err, absolute_sigma=True) # units are in um
+    pOpt_x, pCov_x = curve_fit(gaussian, bins_x, n_x, p0 = p0_x, sigma = norm_err, absolute_sigma=True) # units are in um
     ax_histx.plot(dx, gaussian(dx, *pOpt_x))
 
-    sigma = pOpt_x[1]/(10**6)
+    sigma = pOpt_x[1]/10**6
     vari = sigma**2
-    k_x = cnst.Boltzmann*temp/vari
-    print(f"for x:\nmean = {pOpt_x[0]}\nsigma = {sigma}")
-    print(f"variance = {vari}")
-    print(f"k = {cnst.Boltzmann*temp/vari} [N/m]")
+    k_x = cnst.Boltzmann*temp/vari*10**6
+    if printBool:
+        print(f"for x:\nmean = {pOpt_x[0]}\nsigma = {sigma*10**6}")
+        print(f"variance = {vari*10**12}")
+        print(f"k = {k_x} [pN/um]")
 
 
     ret = gaussain_method_analysis(pCov_x = pCov_x, pOpt_x = pOpt_x, pCov_y = pCov_y, pOpt_y = pOpt_y, bins_x = bins_x, bins_y = bins_y,
         hist_x = n_x, hist_y = n_y, k_x = k_x, k_y = k_y)
 
+    
+    return ret
+
+@dataclass
+class PositionData:
+    raw_x: np.array = np.array([])
+    raw_y: np.array = np.array([])
+    rad_px: np.array = np.array([])
+    x_px: np.array = np.array([])
+    y_px: np.array = np.array([])
+    x_dat: np.array = np.array([])
+    y_dat: np.array = np.array([])
+    x: np.array = np.array([])
+    y: np.array = np.array([])
+    x_dec: np.array = np.array([])
+    y_dec: np.array = np.array([])
+
+def extract_data(*args,interval = 5, um_per_px = 1/23.68, **kwargs):
+    kwargs['unpack'] = True
+    rad_px, raw_x, raw_y = np.genfromtxt(*args, **kwargs)
+    x_px, y_px, idx = outliers(raw_x, raw_y)
+    if len(idx) != 0:
+        print(f'{len(idx)} outliers found')
+    rad_px = np.array([rad_px[i] for i in range(len(x_px)) if i not in idx])
+
+    rad_dat = rad_px*um_per_px
+    x_dat = x_px*um_per_px
+    y_dat = y_px*um_per_px
+    x_ave = np.mean(x_dat)
+    y_ave = np.mean(y_dat)
+
+    rad_arr = rad_dat
+    x = x_dat-x_ave
+    y = y_dat-y_ave
+    x_dec = x[::interval]
+    y_dec = y[::interval]
+    
+    ret = PositionData(raw_x = raw_x, raw_y = raw_y, rad_px = rad_px, x_px = x_px, y_px = y_px, x_dat = x_dat,
+        y_dat = y_dat, x = x, y = y, x_dec = x_dec, y_dec = y_dec)
     return ret
