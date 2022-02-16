@@ -186,7 +186,7 @@ def gaussian_analysis(x,y, nbins = 10, p0 = [0,0.1]):
     norm_err = error/normalizing_factor
 
     dx = np.linspace(min(bins)*1.2, max(bins)*1.2, 100)
-    pOpt_x, pCov_x = curve_fit(gaussian, bins_x, n_x, p0 = [0,0.05], sigma = norm_err, absolute_sigma=True) # units are in um
+    pOpt_x, pCov_x = curve_fit(gaussian, bins_x, n_x, p0 = p0, sigma = norm_err, absolute_sigma=True) # units are in um
     
 
     sigma = pOpt_x[1]/10**6
