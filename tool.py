@@ -44,6 +44,7 @@ def local_max(arr, N = 2, strict = False):
                     #reproduce old behaviour
                     local_max = False
                     break
+                #other wise search in the other direction
                 
             try:
                 if arr[i] < arr[i - j]:
@@ -155,6 +156,7 @@ def get_k_equipartition(x,y):
     return k_x*10**6, k_y*10**6 # in [pN/um]
 
 def gaussian_analysis(x,y, nbins = 10, p0 = [0,0.1]):
+    '''performs the gaussian analysis without plotting like make histogram'''
     n, bins = np.histogram(y, bins = nbins)
     normalizing_factor = np.sum(n)*abs(bins[0] - bins[1])
     error = np.sqrt(n)
@@ -301,9 +303,12 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True
 
 @dataclass
 class PositionData:
+    '''class to store all relevant extracted data from dataset,
+    raw is the raw data, px is the pixel values, dat is the the um measurment
+    and x,y have mean subtracted, dec are the decimated version of x and y'''
     raw_x: np.array = np.array([])
     raw_y: np.array = np.array([])
-    rad_px: np.array = np.array([])
+    rad_dat: np.array = np.array([])
     x_px: np.array = np.array([])
     y_px: np.array = np.array([])
     x_dat: np.array = np.array([])
@@ -314,6 +319,8 @@ class PositionData:
     y_dec: np.array = np.array([])
 
 def extract_data(*args,interval = 5, um_per_px = 1/23.68, **kwargs):
+    '''function for extracting and formatting all relevant data from a run,
+    see PositionData class for more information'''
     kwargs['unpack'] = True
     rad_px, raw_x, raw_y = np.genfromtxt(*args, **kwargs)
     x_px, y_px, idx = outliers(raw_x, raw_y)
@@ -333,6 +340,6 @@ def extract_data(*args,interval = 5, um_per_px = 1/23.68, **kwargs):
     x_dec = x[::interval]
     y_dec = y[::interval]
     
-    ret = PositionData(raw_x = raw_x, raw_y = raw_y, rad_px = rad_px, x_px = x_px, y_px = y_px, x_dat = x_dat,
+    ret = PositionData(raw_x = raw_x, raw_y = raw_y, rad_dat = rad_dat, x_px = x_px, y_px = y_px, x_dat = x_dat,
         y_dat = y_dat, x = x, y = y, x_dec = x_dec, y_dec = y_dec)
     return ret
