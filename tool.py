@@ -155,8 +155,9 @@ def get_k_equipartition(x,y):
     k_y = k_b*T/(var_y) #[N/m]
     return k_x*10**6, k_y*10**6 # in [pN/um]
 
-def gaussian_analysis(x,y, nbins = 10, p0 = [0,0.1]):
+def gaussian_analysis(x,y, nbins = 10):
     '''performs the gaussian analysis without plotting like make histogram'''
+    p0 = [np.mean(x), np.std(x)]
     n, bins = np.histogram(y, bins = nbins)
     normalizing_factor = np.sum(n)*abs(bins[0] - bins[1])
     error = np.sqrt(n)
@@ -167,12 +168,13 @@ def gaussian_analysis(x,y, nbins = 10, p0 = [0,0.1]):
     bins_y = (bins[:-1] + bins[1:])/2
 
     dx = np.linspace(min(bins)*1.2, max(bins)*1.2, 100)
+    # fits data in um
     pOpt_y, pCov_y = curve_fit(gaussian, bins_y, n_y, p0 = p0, sigma = norm_err, absolute_sigma=True)
 
     temp = 298
-    sigma = pOpt_y[1]/10**6
-    vari = sigma**2
-    k_y = cnst.Boltzmann*temp/vari*10**6
+    sigma = pOpt_y[1]/10**6 # fit output is in um, turn into m
+    vari = sigma**2 # m^2
+    k_y = cnst.Boltzmann*temp/vari*10**6 # 10^6 makes pN/um from N/m
 
     ### x analysis starts here
     n, bins = np.histogram(x, bins = nbins)
@@ -202,8 +204,8 @@ def gaussian_analysis(x,y, nbins = 10, p0 = [0,0.1]):
     return ret
 
 
-def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True, plot = True, p0_y = [0,0.1],
-    p0_x = [0,0.1]):
+def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True, plot = True):
+    p0 = [np.mean(x), np.std(x)]
     '''takes x and y data and makes the histogram projection as well as analysis
     of fits using a gaussian function'''
     # start with a square Figure
@@ -254,7 +256,7 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True
 
 
     dx = np.linspace(min(bins)*1.2, max(bins)*1.2, 100)
-    pOpt_y, pCov_y = curve_fit(gaussian, bins_y, n_y, p0 = p0_y, sigma = norm_err, absolute_sigma=True)
+    pOpt_y, pCov_y = curve_fit(gaussian, bins_y, n_y, p0 = p0, sigma = norm_err, absolute_sigma=True)
     ax_histy.plot(gaussian(dx, *pOpt_y), dx)
 
     temp = 298
@@ -283,7 +285,7 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True
     ax_histx.errorbar(bins_x, n_x, yerr = norm_err, fmt = 'k.', capsize = 3, ms = 1)
 
     dx = np.linspace(min(bins)*1.2, max(bins)*1.2, 100)
-    pOpt_x, pCov_x = curve_fit(gaussian, bins_x, n_x, p0 = p0_x, sigma = norm_err, absolute_sigma=True) # units are in um
+    pOpt_x, pCov_x = curve_fit(gaussian, bins_x, n_x, p0 = p0, sigma = norm_err, absolute_sigma=True) # units are in um
     ax_histx.plot(dx, gaussian(dx, *pOpt_x))
 
     sigma = pOpt_x[1]/10**6
@@ -317,6 +319,8 @@ class PositionData:
     y: np.array = np.array([])
     x_dec: np.array = np.array([])
     y_dec: np.array = np.array([])
+    fitx_coef: np.array = np.array([])
+    fity_coef: np.array = np.array([])
 
 def extract_data(*args,interval = 5, um_per_px = 1/23.68, **kwargs):
     '''function for extracting and formatting all relevant data from a run,
@@ -335,11 +339,15 @@ def extract_data(*args,interval = 5, um_per_px = 1/23.68, **kwargs):
     y_ave = np.mean(y_dat)
 
     rad_arr = rad_dat
-    x = x_dat-x_ave
-    y = y_dat-y_ave
+    fitx = np.polynomial.Polynomial.fit(np.arange(0,len(x_dat),1),x_dat, deg = 1)
+    fity = np.polynomial.Polynomial.fit(np.arange(0,len(x_dat),1),y_dat, deg = 1)
+    
+
+    x = x_dat-fitx(np.arange(0,len(x_dat),1))
+    y = y_dat-fity(np.arange(0,len(x_dat),1))
     x_dec = x[::interval]
     y_dec = y[::interval]
     
     ret = PositionData(raw_x = raw_x, raw_y = raw_y, rad_dat = rad_dat, x_px = x_px, y_px = y_px, x_dat = x_dat,
-        y_dat = y_dat, x = x, y = y, x_dec = x_dec, y_dec = y_dec)
+        y_dat = y_dat, x = x, y = y, x_dec = x_dec, y_dec = y_dec, fitx_coef = fitx.coef, fity_coef = fity.coef)
     return ret
