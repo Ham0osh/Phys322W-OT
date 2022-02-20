@@ -138,6 +138,8 @@ class gaussain_method_analysis:
     bins_y: np.array = np.array([])
     hist_x: np.array = np.array([]) 
     hist_y: np.array = np.array([])
+    sigma_x: np.array = np.array([])
+    sigma_y: np.array = np.array([])
     k_x: float = 0
     k_y: float = 0
     
@@ -163,13 +165,13 @@ def gaussian_analysis(x,y, nbins = 10):
     error = np.sqrt(n)
     error = np.where(error == 0, 1, error)
 
-    norm_err = error/normalizing_factor
+    norm_err_y = error/normalizing_factor
     n_y, bins = np.histogram(y, bins = nbins, density = True)
     bins_y = (bins[:-1] + bins[1:])/2
 
     dx = np.linspace(min(bins)*1.2, max(bins)*1.2, 100)
     # fits data in um
-    pOpt_y, pCov_y = curve_fit(gaussian, bins_y, n_y, p0 = p0, sigma = norm_err, absolute_sigma=True)
+    pOpt_y, pCov_y = curve_fit(gaussian, bins_y, n_y, p0 = p0, sigma = norm_err_y, absolute_sigma=True)
 
     temp = 298
     sigma = pOpt_y[1]/10**6 # fit output is in um, turn into m
@@ -187,10 +189,10 @@ def gaussian_analysis(x,y, nbins = 10):
     #get centre position of the bins
     bins_x = (bins[:-1] + bins[1:])/2
 
-    norm_err = error/normalizing_factor
+    norm_err_x = error/normalizing_factor
 
     dx = np.linspace(min(bins)*1.2, max(bins)*1.2, 100)
-    pOpt_x, pCov_x = curve_fit(gaussian, bins_x, n_x, p0 = p0, sigma = norm_err, absolute_sigma=True) # units are in um
+    pOpt_x, pCov_x = curve_fit(gaussian, bins_x, n_x, p0 = p0, sigma = norm_err_x, absolute_sigma=True) # units are in um
     
 
     sigma = pOpt_x[1]/10**6
@@ -198,7 +200,7 @@ def gaussian_analysis(x,y, nbins = 10):
     k_x = cnst.Boltzmann*temp/vari*10**6
 
     ret = gaussain_method_analysis(pCov_x = pCov_x, pOpt_x = pOpt_x, pCov_y = pCov_y, pOpt_y = pOpt_y, bins_x = bins_x, bins_y = bins_y,
-        hist_x = n_x, hist_y = n_y, k_x = k_x, k_y = k_y)
+        hist_x = n_x, hist_y = n_y, k_x = k_x, k_y = k_y, sigma_x = norm_err_x, sigma_y = norm_err_y)
 
     
     return ret
@@ -251,12 +253,12 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True
 
 
 
-    norm_err = error/normalizing_factor
-    ax_histy.errorbar(n_y, bins_y, xerr = norm_err, fmt = 'k.', capsize = 3, ms = 1)
+    norm_err_y = error/normalizing_factor
+    ax_histy.errorbar(n_y, bins_y, xerr = norm_err_y, fmt = 'k.', capsize = 3, ms = 1)
 
 
     dx = np.linspace(min(bins)*1.2, max(bins)*1.2, 100)
-    pOpt_y, pCov_y = curve_fit(gaussian, bins_y, n_y, p0 = p0, sigma = norm_err, absolute_sigma=True)
+    pOpt_y, pCov_y = curve_fit(gaussian, bins_y, n_y, p0 = p0, sigma = norm_err_y, absolute_sigma=True)
     ax_histy.plot(gaussian(dx, *pOpt_y), dx)
 
     temp = 298
@@ -281,11 +283,11 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True
     #get centre position of the bins
     bins_x = (bins[:-1] + bins[1:])/2
 
-    norm_err = error/normalizing_factor
-    ax_histx.errorbar(bins_x, n_x, yerr = norm_err, fmt = 'k.', capsize = 3, ms = 1)
+    norm_err_x = error/normalizing_factor
+    ax_histx.errorbar(bins_x, n_x, yerr = norm_err_x, fmt = 'k.', capsize = 3, ms = 1)
 
     dx = np.linspace(min(bins)*1.2, max(bins)*1.2, 100)
-    pOpt_x, pCov_x = curve_fit(gaussian, bins_x, n_x, p0 = p0, sigma = norm_err, absolute_sigma=True) # units are in um
+    pOpt_x, pCov_x = curve_fit(gaussian, bins_x, n_x, p0 = p0, sigma = norm_err_x, absolute_sigma=True) # units are in um
     ax_histx.plot(dx, gaussian(dx, *pOpt_x))
 
     sigma = pOpt_x[1]/10**6
@@ -298,7 +300,7 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True
 
 
     ret = gaussain_method_analysis(pCov_x = pCov_x, pOpt_x = pOpt_x, pCov_y = pCov_y, pOpt_y = pOpt_y, bins_x = bins_x, bins_y = bins_y,
-        hist_x = n_x, hist_y = n_y, k_x = k_x, k_y = k_y)
+        hist_x = n_x, hist_y = n_y, k_x = k_x, k_y = k_y, sigma_x = norm_err_x, sigma_y = norm_err_y)
 
     
     return ret
