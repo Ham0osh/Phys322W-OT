@@ -1,3 +1,4 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
@@ -157,7 +158,7 @@ def get_k_equipartition(x,y):
     k_y = k_b*T/(var_y) #[N/m]
     return k_x*10**6, k_y*10**6 # in [pN/um]
 
-def gaussian_analysis(x,y, nbins = 10):
+def gaussian_analysis(x,y, nbins = 10,temp = 293):
     '''performs the gaussian analysis without plotting like make histogram'''
     p0 = [np.mean(x), np.std(x)]
     n, bins = np.histogram(y, bins = nbins)
@@ -173,7 +174,6 @@ def gaussian_analysis(x,y, nbins = 10):
     # fits data in um
     pOpt_y, pCov_y = curve_fit(gaussian, bins_y, n_y, p0 = p0, sigma = norm_err_y, absolute_sigma=True)
 
-    temp = 298
     sigma = pOpt_y[1]/10**6 # fit output is in um, turn into m
     vari = sigma**2 # m^2
     k_y = cnst.Boltzmann*temp/vari*10**6 # 10^6 makes pN/um from N/m
@@ -206,7 +206,7 @@ def gaussian_analysis(x,y, nbins = 10):
     return ret
 
 
-def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True, plot = True):
+def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True, plot = True,axTitle = "Displacement Scatter with Fitted Histograms",temp = 293):
     p0 = [np.mean(x), np.std(x)]
     '''takes x and y data and makes the histogram projection as well as analysis
     of fits using a gaussian function'''
@@ -223,7 +223,7 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True
 
 
     ax = fig.add_subplot(gs[1, 0])
-
+    ax.set(ylabel = r"Y Dsiplacement [$\mu$m]",xlabel = r"X Dsiplacement [$\mu$m]")
     #no idea how this formatting works
     points = np.array([x, y]).T.reshape(-1, 1, 2)
     segments = np.concatenate([points[:-1], points[1:]], axis=1) 
@@ -234,8 +234,11 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True
     
 
     ax_histx = fig.add_subplot(gs[0, 0], sharex=ax)
+    ax_histx.set(title = axTitle)
     ax_histy = fig.add_subplot(gs[1, 1], sharey=ax)
-    fig.colorbar(cm.ScalarMappable(cmap=cmap), ax=ax_histy,label = "passage of time")
+    ax_histx.set(ylabel = "Normed Hist")
+    ax_histy.set(xlabel = "Normed Hist")
+    fig.colorbar(cm.ScalarMappable(cmap=cmap), ax=ax_histy,label = "Passage of Time")
     ax_histx.tick_params(axis="x", labelbottom=False)
     ax_histy.tick_params(axis="y", labelleft=False)
 
@@ -261,7 +264,6 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True
     pOpt_y, pCov_y = curve_fit(gaussian, bins_y, n_y, p0 = p0, sigma = norm_err_y, absolute_sigma=True)
     ax_histy.plot(gaussian(dx, *pOpt_y), dx)
 
-    temp = 298
     sigma = pOpt_y[1]/10**6
     vari = sigma**2
     k_y = cnst.Boltzmann*temp/vari*10**6
