@@ -1,4 +1,3 @@
-
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
@@ -139,6 +138,8 @@ class gaussain_method_analysis:
     bins_y: np.array = np.array([])
     hist_x: np.array = np.array([]) 
     hist_y: np.array = np.array([])
+    res_x: np.array = np.array([]) 
+    res_y: np.array = np.array([])
     sigma_x: np.array = np.array([])
     sigma_y: np.array = np.array([])
     k_x: float = 0
@@ -178,6 +179,14 @@ def gaussian_analysis(x,y, nbins = 10,temp = 293):
     vari = sigma**2 # m^2
     k_y = cnst.Boltzmann*temp/vari*10**6 # 10^6 makes pN/um from N/m
 
+    res_y = n_y - gaussian(bins_y,*pOpt_y)
+    normRes_y = res_y/ norm_err_y
+    N = len(bins_y)
+    chiSq = np.sum(normRes_y**2)
+    nu = N  - len(pOpt_y) # points minus #fit parameters
+    chiSigma = np.sqrt(2*nu)
+
+
     ### x analysis starts here
     n, bins = np.histogram(x, bins = nbins)
     normalizing_factor = np.sum(n)*abs(bins[0] - bins[1])
@@ -198,9 +207,16 @@ def gaussian_analysis(x,y, nbins = 10,temp = 293):
     sigma = pOpt_x[1]/10**6
     vari = sigma**2
     k_x = cnst.Boltzmann*temp/vari*10**6
+    
+    res_x = n_x - gaussian(bins_x,*pOpt_x)
+    normRes_x = res_x/norm_err_x
+    N = len(bins_x)
+    chiSq = np.sum(normRes_x**2)
+    nu = N  - len(pOpt_x) # points minus #fit parameters
+    chiSigma = np.sqrt(2*nu)
 
     ret = gaussain_method_analysis(pCov_x = pCov_x, pOpt_x = pOpt_x, pCov_y = pCov_y, pOpt_y = pOpt_y, bins_x = bins_x, bins_y = bins_y,
-        hist_x = n_x, hist_y = n_y, k_x = k_x, k_y = k_y, sigma_x = norm_err_x, sigma_y = norm_err_y)
+        hist_x = n_x, hist_y = n_y, k_x = k_x, k_y = k_y, sigma_x = norm_err_x, sigma_y = norm_err_y, res_x = res_x, res_y = res_y)
 
     
     return ret
@@ -234,7 +250,7 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True
     
 
     ax_histx = fig.add_subplot(gs[0, 0], sharex=ax)
-    ax_histx.set(title = axTitle)
+    
     ax_histy = fig.add_subplot(gs[1, 1], sharey=ax)
     ax_histx.set(ylabel = "Normed Hist")
     ax_histy.set(xlabel = "Normed Hist")
@@ -267,10 +283,19 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True
     sigma = pOpt_y[1]/10**6
     vari = sigma**2
     k_y = cnst.Boltzmann*temp/vari*10**6
+    res_y = n_y - gaussian(bins_y,*pOpt_y)
+    normRes = res_y/ norm_err_y
+    N = len(bins_y)
+    chiSq = np.sum(normRes**2)
+    nu = N  - len(pOpt_y) # points minus #fit parameters
+    chiSigma = np.sqrt(2*nu)
     if printBool:
         print(f"for y:\nmean = {pOpt_y[0]}\nsigma = {sigma*10**6}")
         print(f"variance = {vari*10**12}")
         print(f"k = {k_y} [pN/um]")
+        print("Fit Statistics\n ChiSq =",chiSq,"+/-",chiSigma)
+        print(" nu =",nu)
+        print(" Reduced Chi =",chiSq/nu)
 
 
     ##### this is where the x analysis begins
@@ -295,14 +320,23 @@ def make_histogram_projection(x,y, cmap = 'viridis', nbins = 10,printBool = True
     sigma = pOpt_x[1]/10**6
     vari = sigma**2
     k_x = cnst.Boltzmann*temp/vari*10**6
+    res_x = n_x - gaussian(bins_x,*pOpt_x)
+    normRes = res_x/ norm_err_x
+    N = len(bins_x)
+    chiSq = np.sum(normRes**2)
+    nu = N  - len(pOpt_x) # points minus #fit parameters
+    chiSigma = np.sqrt(2*nu)
     if printBool:
         print(f"for x:\nmean = {pOpt_x[0]}\nsigma = {sigma*10**6}")
         print(f"variance = {vari*10**12}")
-        print(f"k = {k_x} [pN/um]")
+        print(f"k = {k_x} [pN/um]") # that should be better
+        print("Fit Statistics\n ChiSq =",chiSq,"+/-",chiSigma)
+        print(" nu =",nu)
+        print(" Reduced Chi =",chiSq/nu)
 
 
     ret = gaussain_method_analysis(pCov_x = pCov_x, pOpt_x = pOpt_x, pCov_y = pCov_y, pOpt_y = pOpt_y, bins_x = bins_x, bins_y = bins_y,
-        hist_x = n_x, hist_y = n_y, k_x = k_x, k_y = k_y, sigma_x = norm_err_x, sigma_y = norm_err_y)
+        hist_x = n_x, hist_y = n_y, k_x = k_x, k_y = k_y, sigma_x = norm_err_x, sigma_y = norm_err_y,res_x = res_x, res_y = res_y)
 
     
     return ret
